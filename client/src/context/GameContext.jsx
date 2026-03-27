@@ -3,7 +3,10 @@ import { io } from "socket.io-client";
 
 const GameContext = createContext(null);
 
-const socket = io("http://localhost:3001", { autoConnect: true });
+// In production, socket.io connects to the same origin (server serves both the app and websockets).
+// In dev, connect directly to the local server.
+const isDev = import.meta.env.DEV;
+const socket = io(isDev ? "http://localhost:3001" : undefined, { autoConnect: true });
 
 export function GameProvider({ children }) {
   const [gameState, setGameState] = useState(null);

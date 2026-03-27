@@ -2,15 +2,23 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import {
   createGame, joinGame, disconnectPlayer, startGame,
   startNextRound, submitCard, selectWinner, getGame, getStateForPlayer,
 } from "./gameManager.js";
 import { SocketEvents } from "../shared/constants.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Serve built React client in production
+const clientPath = join(__dirname, "../client/dist");
+app.use(express.static(clientPath));
 
 const server = createServer(app);
 const io = new Server(server, {
@@ -96,7 +104,6 @@ io.on("connection", (socket) => {
     try {
       const game = selectWinner(roomCode, socket.id, winnerId);
       broadcastGameState(game);
-      // Auto-advance to next round after a delay
       if (game.status !== "finished") {
         setTimeout(() => {
           const g = getGame(roomCode);
@@ -117,6 +124,11 @@ io.on("connection", (socket) => {
     const game = disconnectPlayer(socket.id);
     if (game) broadcastGameState(game);
   });
+});
+
+// SPA fallback — serve index.html for all non-API routes
+app.get("*", (req, res) => {
+  res.sendFile(join(clientPath, "index.html"));
 });
 
 const PORT = process.env.PORT || 3001;
