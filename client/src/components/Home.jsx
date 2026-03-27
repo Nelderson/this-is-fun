@@ -20,7 +20,7 @@ export default function Home() {
   return (
     <div className="w-full max-w-md space-y-6">
       <p className="text-gray-400 text-center text-sm">
-        A party game for horrible (and hilarious) people
+        A game for when fun is manditory
       </p>
 
       <input

@@ -9,6 +9,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4">
+      <button
+        onClick={() => window.open("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "_blank")}
+        className="absolute top-4 right-4 px-3 py-1.5 text-xs bg-surface text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded transition"
+      >
+        HR Request
+      </button>
       <h1 className="text-4xl font-bold text-accent mb-2">This Is Fun</h1>
 
       {!connected && (
