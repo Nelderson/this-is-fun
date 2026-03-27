@@ -1,4 +1,5 @@
 import { useGame } from "../context/GameContext.jsx";
+import FlipCard from "./FlipCard.jsx";
 
 export default function GameBoard() {
   const { gameState, submitCard, selectWinner, socket } = useGame();
@@ -26,7 +27,7 @@ export default function GameBoard() {
           .map((p) => (
             <div
               key={p.id}
-              className={`px-3 py-1 rounded text-sm ${
+              className={`px-3 py-1 rounded text-sm transition-all duration-300 ${
                 p.id === round.selectorId
                   ? "bg-accent text-white"
                   : "bg-surface text-gray-300"
@@ -50,7 +51,7 @@ export default function GameBoard() {
 
       {/* Winner announcement */}
       {round.winnerId && (
-        <div className="text-center py-3 bg-accent/20 rounded-lg border border-accent/40">
+        <div className="text-center py-3 bg-accent/20 rounded-lg border border-accent/40 card-reveal">
           <p className="text-accent font-bold text-lg">
             {winnerName} wins this round!
           </p>
@@ -58,7 +59,30 @@ export default function GameBoard() {
         </div>
       )}
 
-      {/* All submissions revealed — visible to EVERYONE */}
+      {/* Selector: face-down cards arriving in real time BEFORE all are in */}
+      {isSelector && !round.allSubmitted && submittedCount > 0 && (
+        <div className="space-y-3">
+          <p className="text-center text-sm text-gray-400">
+            Cards coming in ({submittedCount} of {expectedCount})...
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {round.submissions.map((_, i) => (
+              <div
+                key={i}
+                className="card-reveal bg-surface border-2 border-gray-600 rounded-xl p-4 flex items-center justify-center"
+                style={{
+                  animationDelay: `${i * 100}ms`,
+                  minHeight: "120px",
+                }}
+              >
+                <span className="text-gray-500 text-lg font-bold tracking-widest">?</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All submissions revealed — visible to EVERYONE with flip animation */}
       {round.allSubmitted && (
         <div className="space-y-3">
           <p className="text-center text-sm text-gray-400">
@@ -69,44 +93,41 @@ export default function GameBoard() {
               : `Waiting for ${selectorName} to pick a winner...`}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {round.submissions.map((sub, i) => {
-              const isWinner = round.winnerId && sub.playerId === round.winnerId;
-              const canPick = isSelector && !round.winnerId;
-
-              return (
-                <button
-                  key={i}
-                  disabled={!canPick}
-                  onClick={() => canPick && selectWinner(gameState.roomCode, sub.playerId)}
-                  className={`bg-white_card text-gray-900 p-4 rounded-xl text-left font-medium shadow transition relative
-                    ${canPick ? "hover:ring-2 hover:ring-accent hover:-translate-y-1 cursor-pointer" : "cursor-default"}
-                    ${isWinner ? "ring-2 ring-accent" : ""}
-                  `}
-                >
-                  <span>{sub.card}</span>
-                  {round.winnerId && (
-                    <span className="block text-xs text-gray-500 mt-2">
-                      — {sub.playerName}
-                      {isWinner && " 🏆"}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {round.submissions.map((sub, i) => (
+              <FlipCard
+                key={i}
+                card={sub.card}
+                playerName={sub.playerName}
+                isWinner={round.winnerId && sub.playerId === round.winnerId}
+                canPick={isSelector && !round.winnerId}
+                showName={!!round.winnerId}
+                delay={i * 200}
+                onClick={() => selectWinner(gameState.roomCode, sub.playerId)}
+              />
+            ))}
           </div>
         </div>
       )}
 
-      {/* Waiting state before all cards are in */}
-      {!round.allSubmitted && (
-        <div className="text-center">
-          <p className="text-gray-500 animate-pulse">
-            {submittedCount} of {expectedCount} cards submitted...
-          </p>
+      {/* Waiting state before all cards are in (non-selector or selector with 0 submissions) */}
+      {!round.allSubmitted && (!isSelector || submittedCount === 0) && (
+        <div className="text-center flex items-center justify-center gap-2">
+          <span className="text-gray-500">
+            {submittedCount} of {expectedCount} cards in
+          </span>
+          <span className="flex gap-1">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <span
+                key={i}
+                className="w-1.5 h-1.5 bg-accent rounded-full counter-dot"
+                style={{ animationDelay: `${i * 0.3}s` }}
+              />
+            ))}
+          </span>
         </div>
       )}
 
-      {/* Player's hand (non-selector, before all submitted) */}
+      {/* Player's hand (non-selector) */}
       {!isSelector && !round.winnerId && (
         <div className="space-y-3">
           <p className="text-center text-sm text-gray-400">
@@ -118,10 +139,10 @@ export default function GameBoard() {
                 key={i}
                 disabled={hasSubmitted}
                 onClick={() => submitCard(gameState.roomCode, i)}
-                className={`bg-white_card text-gray-900 p-4 rounded-xl text-left font-medium shadow transition ${
+                className={`hand-card bg-white_card text-gray-900 p-4 rounded-xl text-left font-medium shadow ${
                   hasSubmitted
                     ? "opacity-50 cursor-not-allowed"
-                    : "hover:ring-2 hover:ring-accent hover:-translate-y-1"
+                    : "hover:ring-2 hover:ring-accent"
                 } ${round.mySubmission === card ? "ring-2 ring-accent" : ""}`}
               >
                 {card}

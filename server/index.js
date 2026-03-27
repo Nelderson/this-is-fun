@@ -50,6 +50,23 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("upload-cards", ({ roomCode, cards }, cb) => {
+    try {
+      const game = getGame(roomCode);
+      if (!game) throw new Error("Room not found");
+      if (game.hostId !== socket.id) throw new Error("Only the host can upload cards");
+      if (game.status !== "lobby") throw new Error("Can only upload cards in the lobby");
+      if (!cards?.blackCards?.length || !cards?.whiteCards?.length) {
+        throw new Error("Invalid card data");
+      }
+      game.customCards = cards;
+      cb({ ok: true });
+      broadcastGameState(game);
+    } catch (e) {
+      cb({ ok: false, error: e.message });
+    }
+  });
+
   socket.on(SocketEvents.START_GAME, ({ roomCode }, cb) => {
     try {
       const game = startGame(roomCode, socket.id);

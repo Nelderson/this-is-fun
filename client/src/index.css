@@ -5,3 +5,72 @@
 body {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
+
+/* Card flip animation */
+.card-flip-container {
+  perspective: 1000px;
+}
+
+.card-flip-inner {
+  position: relative;
+  transition: transform 0.6s ease;
+  transform-style: preserve-3d;
+}
+
+.card-flip-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.card-front,
+.card-back {
+  backface-visibility: hidden;
+  position: absolute;
+  inset: 0;
+}
+
+.card-back {
+  transform: rotateY(180deg);
+}
+
+/* Staggered reveal */
+.card-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: cardReveal 0.4s ease forwards;
+}
+
+@keyframes cardReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Winner highlight pulse */
+.winner-pulse {
+  animation: winnerPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes winnerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 69, 96, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(233, 69, 96, 0); }
+}
+
+/* Slide up for hand cards */
+.hand-card {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.hand-card:hover:not(:disabled) {
+  transform: translateY(-8px);
+}
+
+/* Submission counter pulse */
+.counter-dot {
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}

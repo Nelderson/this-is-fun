@@ -1,4 +1,5 @@
 import { useGame } from "../context/GameContext.jsx";
+import CardImport from "./CardImport.jsx";
 
 export default function Lobby() {
   const { gameState, startGame, socket } = useGame();
@@ -35,6 +36,8 @@ export default function Lobby() {
             ))}
         </div>
       </div>
+
+      {isHost && <CardImport />}
 
       {isHost ? (
         <button
