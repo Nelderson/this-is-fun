@@ -1,11 +1,24 @@
 import { useGame } from "./context/GameContext.jsx";
-import Home from "./components/Home.jsx";
+import GameSelect from "./components/GameSelect.jsx";
 import Lobby from "./components/Lobby.jsx";
-import GameBoard from "./components/GameBoard.jsx";
-import GameOver from "./components/GameOver.jsx";
+
+// Game-specific components
+import CardsGameBoard from "./components/games/cards/GameBoard.jsx";
+import CardsGameOver from "./components/games/cards/GameOver.jsx";
+import RebusGameBoard from "./components/games/rebus/GameBoard.jsx";
+import RebusGameOver from "./components/games/rebus/GameOver.jsx";
+
+const gameComponents = {
+  cards: { playing: CardsGameBoard, finished: CardsGameOver },
+  rebus: { playing: RebusGameBoard, finished: RebusGameOver },
+};
 
 export default function App() {
-  const { gameState, error, connected, clearError } = useGame();
+  const { lobbyState, error, connected, clearError } = useGame();
+
+  const gameId = lobbyState?.gameId;
+  const status = lobbyState?.status;
+  const components = gameId ? gameComponents[gameId] : null;
 
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4">
@@ -15,7 +28,7 @@ export default function App() {
       >
         HR Request
       </button>
-      <h1 className="text-4xl font-bold text-accent mb-2">This Is Fun</h1>
+      <h1 className="text-4xl font-bold text-accent mb-2">Icebreakers</h1>
 
       {!connected && (
         <div className="bg-red-900/50 text-red-200 px-4 py-2 rounded mb-4">
@@ -32,10 +45,10 @@ export default function App() {
         </div>
       )}
 
-      {!gameState && <Home />}
-      {gameState?.status === "lobby" && <Lobby />}
-      {gameState?.status === "playing" && <GameBoard />}
-      {gameState?.status === "finished" && <GameOver />}
+      {!lobbyState && <GameSelect />}
+      {status === "lobby" && <Lobby />}
+      {status === "playing" && components?.playing && <components.playing />}
+      {status === "finished" && components?.finished && <components.finished />}
     </div>
   );
 }

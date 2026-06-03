@@ -3,13 +3,12 @@ import { io } from "socket.io-client";
 
 const GameContext = createContext(null);
 
-// In production, socket.io connects to the same origin (server serves both the app and websockets).
-// In dev, connect directly to the local server.
 const isDev = import.meta.env.DEV;
 const socket = io(isDev ? "http://localhost:3001" : undefined, { autoConnect: true });
 
 export function GameProvider({ children }) {
-  const [gameState, setGameState] = useState(null);
+  const [lobbyState, setLobbyState] = useState(null);
+  const [gameData, setGameData] = useState(null);
   const [error, setError] = useState(null);
   const [connected, setConnected] = useState(false);
 
@@ -17,7 +16,9 @@ export function GameProvider({ children }) {
     socket.on("connect", () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
     socket.on("game-state", (state) => {
-      setGameState(state);
+      const { game, ...lobby } = state;
+      setLobbyState(lobby);
+      setGameData(game || null);
       setError(null);
     });
     socket.on("error", (msg) => setError(msg));
@@ -40,17 +41,20 @@ export function GameProvider({ children }) {
     });
   }, []);
 
-  const createRoom = (playerName) => emit("create-room", { playerName });
+  const createRoom = (playerName, gameId) => emit("create-room", { playerName, gameId });
   const joinRoom = (roomCode, playerName) => emit("join-room", { roomCode, playerName });
-  const startGame = (roomCode) => emit("start-game", { roomCode });
-  const submitCard = (roomCode, cardIndex) => emit("submit-card", { roomCode, cardIndex });
-  const selectWinner = (roomCode, winnerId) => emit("select-winner", { roomCode, winnerId });
+
+  const resetState = () => {
+    setLobbyState(null);
+    setGameData(null);
+    setError(null);
+  };
 
   return (
     <GameContext.Provider
       value={{
-        socket, gameState, error, connected,
-        createRoom, joinRoom, startGame, submitCard, selectWinner,
+        socket, lobbyState, gameData, error, connected,
+        createRoom, joinRoom, emit, resetState,
         clearError: () => setError(null),
       }}
     >

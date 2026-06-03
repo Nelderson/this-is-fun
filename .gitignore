@@ -1,6 +1,8 @@
-node_modules/
+ode_modules/
 client/dist/
 .env
 .env.*
 *.log
 .DS_Store
+.venv/
+node_modules

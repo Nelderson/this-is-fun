@@ -1,11 +1,11 @@
-import { useGame } from "../context/GameContext.jsx";
+import { useGame } from "../../../context/GameContext.jsx";
 
-export default function GameOver() {
-  const { gameState } = useGame();
+export default function CardsGameOver() {
+  const { lobbyState, gameData, resetState } = useGame();
 
-  const sorted = Object.entries(gameState.scores)
+  const sorted = Object.entries(gameData.scores)
     .map(([id, score]) => ({
-      name: gameState.players.find((p) => p.id === id)?.name || "Unknown",
+      name: lobbyState.players.find((p) => p.id === id)?.name || "Unknown",
       score,
     }))
     .sort((a, b) => b.score - a.score);
@@ -19,7 +19,6 @@ export default function GameOver() {
         <p className="text-3xl font-bold text-accent mt-2">{winner.name} wins!</p>
         <p className="text-gray-500 mt-1">with {winner.score} points</p>
       </div>
-
       <div className="bg-surface rounded-lg p-4 space-y-2">
         {sorted.map((p, i) => (
           <div
@@ -28,20 +27,16 @@ export default function GameOver() {
               i === 0 ? "bg-accent/20 text-accent" : "bg-bg text-gray-300"
             }`}
           >
-            <span>
-              {i === 0 ? "🏆 " : ""}
-              {p.name}
-            </span>
+            <span>{i === 0 ? "🏆 " : ""}{p.name}</span>
             <span className="font-bold">{p.score}</span>
           </div>
         ))}
       </div>
-
       <button
-        onClick={() => window.location.reload()}
+        onClick={resetState}
         className="w-full py-3 rounded-lg bg-accent hover:bg-accent/80 font-semibold transition"
       >
-        Play Again
+        Back to Games
       </button>
     </div>
   );

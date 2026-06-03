@@ -4,19 +4,26 @@ import { Server } from "socket.io";
 import cors from "cors";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { LobbyEvents } from "../shared/constants.js";
 import {
-  createGame, joinGame, disconnectPlayer, startGame,
-  startNextRound, submitCard, selectWinner, getGame, getStateForPlayer,
-} from "./gameManager.js";
-import { SocketEvents } from "../shared/constants.js";
+  createRoom, joinRoom, disconnectPlayer, getRoom, getLobbyState,
+} from "./lobbyManager.js";
 
+// --- Game plugins ---
+import * as cardsGame from "./games/cards/index.js";
+import * as rebusGame from "./games/rebus/index.js";
+
+const gamePlugins = {
+  [cardsGame.gameId]: cardsGame,
+  [rebusGame.gameId]: rebusGame,
+};
+
+// --- Express setup ---
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve built React client in production
 const clientPath = join(__dirname, "../client/dist");
 app.use(express.static(clientPath));
 
@@ -25,95 +32,46 @@ const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-function broadcastGameState(game) {
-  for (const p of game.players) {
+// --- Broadcast helper ---
+function broadcastState(room) {
+  const lobby = getLobbyState(room);
+  const plugin = gamePlugins[room.gameId];
+
+  for (const p of room.players) {
     const sock = io.sockets.sockets.get(p.id);
-    if (sock) sock.emit(SocketEvents.GAME_STATE, getStateForPlayer(game, p.id));
+    if (!sock) continue;
+
+    const payload = { ...lobby };
+    if (room.gameState && plugin?.getStateForPlayer) {
+      payload.game = plugin.getStateForPlayer(room, p.id);
+    }
+    sock.emit(LobbyEvents.GAME_STATE, payload);
   }
 }
 
+// --- Shared lobby events ---
 io.on("connection", (socket) => {
   console.log(`Connected: ${socket.id}`);
 
-  socket.on(SocketEvents.CREATE_ROOM, ({ playerName }, cb) => {
+  socket.on(LobbyEvents.CREATE_ROOM, ({ playerName, gameId }, cb) => {
     try {
-      const game = createGame(socket.id, playerName);
-      socket.join(game.roomCode);
-      cb({ ok: true, roomCode: game.roomCode });
-      broadcastGameState(game);
+      if (!gamePlugins[gameId]) throw new Error("Unknown game");
+      const room = createRoom(socket.id, playerName, gameId);
+      socket.join(room.roomCode);
+      cb({ ok: true, roomCode: room.roomCode });
+      broadcastState(room);
     } catch (e) {
       cb({ ok: false, error: e.message });
     }
   });
 
-  socket.on(SocketEvents.JOIN_ROOM, ({ roomCode, playerName }, cb) => {
+  socket.on(LobbyEvents.JOIN_ROOM, ({ roomCode, playerName }, cb) => {
     try {
       const code = roomCode.toUpperCase().trim();
-      const game = joinGame(code, socket.id, playerName);
+      const room = joinRoom(code, socket.id, playerName);
       socket.join(code);
-      cb({ ok: true });
-      broadcastGameState(game);
-    } catch (e) {
-      cb({ ok: false, error: e.message });
-    }
-  });
-
-  socket.on("upload-cards", ({ roomCode, cards }, cb) => {
-    try {
-      const game = getGame(roomCode);
-      if (!game) throw new Error("Room not found");
-      if (game.hostId !== socket.id) throw new Error("Only the host can upload cards");
-      if (game.status !== "lobby") throw new Error("Can only upload cards in the lobby");
-      if (!cards?.blackCards?.length || !cards?.whiteCards?.length) {
-        throw new Error("Invalid card data");
-      }
-      game.customCards = cards;
-      cb({ ok: true });
-      broadcastGameState(game);
-    } catch (e) {
-      cb({ ok: false, error: e.message });
-    }
-  });
-
-  socket.on(SocketEvents.START_GAME, ({ roomCode }, cb) => {
-    try {
-      const game = startGame(roomCode, socket.id);
-      const round = startNextRound(game);
-      if (!round) throw new Error("Not enough cards");
-      broadcastGameState(game);
-      cb({ ok: true });
-    } catch (e) {
-      cb({ ok: false, error: e.message });
-    }
-  });
-
-  socket.on(SocketEvents.SUBMIT_CARD, ({ roomCode, cardIndex }, cb) => {
-    try {
-      const { game, allSubmitted } = submitCard(roomCode, socket.id, cardIndex);
-      if (allSubmitted) {
-        game.currentRound.revealed = true;
-      }
-      broadcastGameState(game);
-      cb({ ok: true });
-    } catch (e) {
-      cb({ ok: false, error: e.message });
-    }
-  });
-
-  socket.on(SocketEvents.SELECT_WINNER, ({ roomCode, winnerId }, cb) => {
-    try {
-      const game = selectWinner(roomCode, socket.id, winnerId);
-      broadcastGameState(game);
-      if (game.status !== "finished") {
-        setTimeout(() => {
-          const g = getGame(roomCode);
-          if (g && g.status === "playing") {
-            startNextRound(g);
-            broadcastGameState(g);
-          }
-        }, 4000);
-      }
-      cb({ ok: true });
+      cb({ ok: true, gameId: room.gameId });
+      broadcastState(room);
     } catch (e) {
       cb({ ok: false, error: e.message });
     }
@@ -121,12 +79,17 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log(`Disconnected: ${socket.id}`);
-    const game = disconnectPlayer(socket.id);
-    if (game) broadcastGameState(game);
+    const room = disconnectPlayer(socket.id);
+    if (room) broadcastState(room);
   });
 });
 
-// SPA fallback — serve index.html for all non-API routes
+// --- Register game plugins ---
+for (const plugin of Object.values(gamePlugins)) {
+  plugin.register(io, broadcastState);
+}
+
+// --- SPA fallback ---
 app.get("*", (req, res) => {
   res.sendFile(join(clientPath, "index.html"));
 });
